@@ -1,46 +1,46 @@
 import pandas as pd
 import joblib
-from sklearn.preprocessing import LabelEncoder, OrdinalEncoder
+import warnings
+warnings.filterwarnings("ignore")
 
-class LoanStatusPredictor:
+class ModelInference:
     def __init__(self, model_path='xgb_model.pkl', scaler_path='scaler.pkl',
-                 encoder_path='encoders.pkl', columns_path='columns.pkl'):
+                 columns_path='columns.pkl', encoder_path='encoders.pkl'):
         self.model = joblib.load(model_path)
         self.scaler = joblib.load(scaler_path)
-        self.encoders = joblib.load(encoder_path)
         self.columns = joblib.load(columns_path)
+        self.encoders = joblib.load(encoder_path)
 
-    def preprocess(self, df):
-        df = df.copy()
+    def preprocess(self, raw_df):
+        df = raw_df.copy()
 
-        # Normalisasi gender
-        df['person_gender'] = df['person_gender'].str.lower().replace('fe male', 'female')
+        # Lowercase dan fix gender typo
+        if 'person_gender' in df.columns:
+            df['person_gender'] = df['person_gender'].str.lower()
+            df['person_gender'] = df['person_gender'].replace('fe male', 'female')
 
-        # Imputasi kolom numerik
-        if 'person_income' in df.columns:
-            df['person_income'] = df['person_income'].fillna(df['person_income'].median())
+        # Imputasi jika ada kolom kosong (opsional, hanya untuk jaga-jaga)
+        if df['person_income'].isnull().sum() > 0:
+            median_income = df['person_income'].median()
+            df['person_income'] = df['person_income'].fillna(median_income)
 
         # Scaling kolom numerik
         numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns
         df[numeric_cols] = self.scaler.transform(df[numeric_cols])
 
-        # Encoding binary kategorikal
+        # Encoding kolom kategorikal (LabelEncoder dan OrdinalEncoder)
         for col, encoder in self.encoders.items():
-            if isinstance(encoder, LabelEncoder):
-                if col in df.columns:
+            if col in df.columns:
+                if encoder.__class__.__name__ == 'LabelEncoder':
                     df[col] = encoder.transform(df[col])
+                else:  # OrdinalEncoder
+                    df[[col]] = encoder.transform(df[[col]])
 
-        # Encoding ordinal kategorikal
-        for col, encoder in self.encoders.items():
-            if isinstance(encoder, OrdinalEncoder):
-                if col in df.columns:
-                    df[col] = encoder.transform(df[[col]])
-
-        # One-hot encoding
+        # One-hot encoding untuk kolom multikategori
         one_hot_cols = ['loan_intent', 'person_home_ownership']
         df = pd.get_dummies(df, columns=one_hot_cols, drop_first=True)
 
-        # Samakan struktur kolom
+        # Align dengan kolom training (supaya kolom sama)
         df = df.reindex(columns=self.columns, fill_value=0)
 
         return df
@@ -49,4 +49,3 @@ class LoanStatusPredictor:
         processed_df = self.preprocess(raw_df)
         prediction = self.model.predict(processed_df)
         return prediction
-
