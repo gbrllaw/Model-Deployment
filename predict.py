@@ -1,4 +1,5 @@
 import pandas as pd
+from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 import joblib
 
 class LoanStatusPredictor:
