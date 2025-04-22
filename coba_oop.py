@@ -1,12 +1,8 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import classification_report
-import numpy as np
-np.seterr(all='ignore')
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import RobustScaler, LabelEncoder, OrdinalEncoder
 from sklearn.metrics import classification_report
 import xgboost as xgb
