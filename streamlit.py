@@ -1,4 +1,5 @@
 import streamlit as st
+from sklearn.preprocessing import OrdinalEncoder
 import pandas as pd
 from predict import LoanStatusPredictor  
 
