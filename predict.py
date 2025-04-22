@@ -1,6 +1,6 @@
 import pandas as pd
-from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 import joblib
+from sklearn.preprocessing import LabelEncoder, OrdinalEncoder
 
 class LoanStatusPredictor:
     def __init__(self, model_path='xgb_model.pkl', scaler_path='scaler.pkl',
@@ -10,32 +10,33 @@ class LoanStatusPredictor:
         self.encoders = joblib.load(encoder_path)
         self.columns = joblib.load(columns_path)
 
-        self.ordinal_encoders = {
-            'person_education': OrdinalEncoder(categories=[['High School', 'Bachelors', 'Masters', 'PhD']])
-        }
-
     def preprocess(self, df):
         df = df.copy()
+
+        # Normalisasi gender
         df['person_gender'] = df['person_gender'].str.lower().replace('fe male', 'female')
-        df['person_income'] = df['person_income'].fillna(df['person_income'].median())
 
-        # Imputasi untuk numeric lainnya kalau ada (bisa kamu expand kalau perlu)
+        # Imputasi kolom numerik
+        if 'person_income' in df.columns:
+            df['person_income'] = df['person_income'].fillna(df['person_income'].median())
 
-        # Scaling numerik
+        # Scaling kolom numerik
         numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns
         df[numeric_cols] = self.scaler.transform(df[numeric_cols])
 
-        # Label encoding untuk binary
+        # Encoding binary kategorikal
         for col, encoder in self.encoders.items():
-            if col in df.columns:
-                df[col] = encoder.transform(df[col])
+            if isinstance(encoder, LabelEncoder):
+                if col in df.columns:
+                    df[col] = encoder.transform(df[col])
 
-        # Apply Ordinal Encoding to ordinal categorical columns
-        for col, encoder in self.ordinal_encoders.items():
-            if col in df.columns:
-                df[col] = encoder.transform(df[[col]])
+        # Encoding ordinal kategorikal
+        for col, encoder in self.encoders.items():
+            if isinstance(encoder, OrdinalEncoder):
+                if col in df.columns:
+                    df[col] = encoder.transform(df[[col]])
 
-        # One-hot encoding (manual karena tidak pakai OneHotEncoder sklearn)
+        # One-hot encoding
         one_hot_cols = ['loan_intent', 'person_home_ownership']
         df = pd.get_dummies(df, columns=one_hot_cols, drop_first=True)
 
@@ -46,5 +47,6 @@ class LoanStatusPredictor:
 
     def predict(self, raw_df):
         processed_df = self.preprocess(raw_df)
-        return self.model.predict(processed_df)
+        prediction = self.model.predict(processed_df)
+        return prediction
 
