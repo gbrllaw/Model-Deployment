@@ -1,16 +1,4 @@
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import classification_report
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.preprocessing import RobustScaler, LabelEncoder, OrdinalEncoder
-from sklearn.metrics import classification_report
-import xgboost as xgb
-import warnings
-warnings.filterwarnings("ignore", category=UserWarning)
-import joblib
-import pickle
-
+from sklearn.preprocessing import OrdinalEncoder
 
 class LoanXGBoostModel:
     def __init__(self, data_path):
@@ -39,7 +27,6 @@ class LoanXGBoostModel:
         # Cek tipe data kolom 'person_income' di x_train
         print(self.x_train['person_income'].dtype)  # Untuk memeriksa tipe data
 
-
     def preprocess_data(self):
         # Imputasi nilai kosong
         imputer = SimpleImputer(strategy='median')
@@ -48,7 +35,6 @@ class LoanXGBoostModel:
         # Verifikasi setelah imputasi
         print(self.x_train.isnull().sum())  # Cek apakah ada missing value di x_train
         print(self.x_test.isnull().sum())   # Cek apakah ada missing value di x_test
-
 
         # Scaling numerik
         numeric_cols = self.x_train.select_dtypes(include=['int64', 'float64']).columns
@@ -65,18 +51,20 @@ class LoanXGBoostModel:
             self.x_test[col] = encoder.transform(self.x_test[col])
             self.encoders[col] = encoder  # simpan encoder
 
-        # Menggunakan OrdinalEncoder untuk kolom yang terurut
-        ordinal_cols = ['person_education']  
-        ordinal_encoder = OrdinalEncoder()
-        self.x_train[ordinal_cols] = ordinal_encoder.fit_transform(self.x_train[ordinal_cols])
-        self.x_test[ordinal_cols] = ordinal_encoder.transform(self.x_test[ordinal_cols])
-        self.encoders['person_education'] = ordinal_encoder  
-
-
         # One-hot encoding untuk kolom multikategori
         one_hot_cols = ['loan_intent', 'person_home_ownership']
         self.x_train = pd.get_dummies(self.x_train, columns=one_hot_cols, drop_first=True)
         self.x_test = pd.get_dummies(self.x_test, columns=one_hot_cols, drop_first=True)
+
+        # Ordinal encoding untuk tingkat pendidikan
+        education_order = ['High School', 'Associate', 'Bachelor', 'Master', 'Doctorate']
+        ordinal_encoder = OrdinalEncoder(categories=[education_order])
+
+        self.x_train['person_education'] = ordinal_encoder.fit_transform(self.x_train[['person_education']])
+        self.x_test['person_education'] = ordinal_encoder.transform(self.x_test[['person_education']])
+        
+        # Simpan encoder untuk person_education
+        self.encoders['person_education'] = ordinal_encoder
 
         # Samakan struktur kolom
         self.x_train, self.x_test = self.x_train.align(self.x_test, join='left', axis=1, fill_value=0)
@@ -128,7 +116,6 @@ class LoanXGBoostModel:
         y_pred = self.model.predict(self.x_test)
         print("\nClassification Report\n")
         print(classification_report(self.y_test, y_pred, target_names=['0', '1']))
-
 
     def save_model(self, model_path='xgb_model.pkl', scaler_path='scaler.pkl',
                    columns_path='columns.pkl', encoder_path='encoders.pkl'):
